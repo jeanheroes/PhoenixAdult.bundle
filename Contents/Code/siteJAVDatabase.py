@@ -2,7 +2,160 @@ import PAsearchSites
 import PAutils
 
 
+def query_string(file_name):
+    code_match_pattern1 = '[0-9]*[a-zA-Z]{1,6}[0-9]*[-][0-9]{3,6}[zZ]?'
+    code_match_pattern2 = '([a-zA-Z]{1,6})([0-9]{3,6}[zZ]?)'
+    re_rules1 = re.compile(code_match_pattern1, flags=re.IGNORECASE)
+    re_rules2 = re.compile(code_match_pattern2, flags=re.IGNORECASE)
+
+    file_code1 = re_rules1.findall(file_name)
+    file_code2 = re_rules2.findall(file_name)
+    if file_code1:
+        query = file_code1[0].upper()
+    elif file_code2:
+        query = file_code2[0][0].upper() + '-' + file_code2[0][1]
+    else:
+        query = file_name
+    return query
+
+
 def search(results, lang, siteNum, searchData):
+    searchJAVID = None
+
+    # searchJAVID = query_string(searchData.title.replace(' ', '-')).upper()
+    searchJAVID = searchData.title.split(' ')[0].upper() + '-' +  searchData.title.split(' ')[1].upper()
+    searchTitle = searchData.title.replace(' ', '-').upper()
+    Log('debug searchJAVID keyword :%s' % searchJAVID)
+    Log('debug searchTitle keyword :%s' % searchTitle)
+
+    if searchJAVID:
+        searchData.encoded = searchJAVID
+
+    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + searchData.encoded)
+    searchPageElements = HTML.ElementFromString(req.text)
+    for searchResult in searchPageElements.xpath('//div[contains(@class, "card h-100")]'):
+        titleNoFormatting = PAutils.parseTitle(searchResult.xpath('.//div[@class="mt-auto"]/a')[0].text_content().strip(), siteNum)
+        JAVID = searchResult.xpath('.//p//a[contains(@class, "cut-text")]')[0].text_content().strip()
+        sceneURL = searchResult.xpath('.//p//a[contains(@class, "cut-text")]/@href')[0].strip()
+        curID = PAutils.Encode(sceneURL)
+
+        date = searchResult.xpath('.//div[@class="mt-auto"]/text()')
+        if date:
+            releaseDate = parse(date[1].strip()).strftime('%Y-%m-%d')
+        else:
+            releaseDate = searchData.dateFormat() if searchData.date else ''
+
+        displayDate = releaseDate if date else ''
+
+        if searchJAVID:
+            score = 100 - Util.LevenshteinDistance(searchJAVID.lower(), JAVID.lower())
+        else:
+            score = 100 - Util.LevenshteinDistance(searchData.title.lower(), titleNoFormatting.lower())
+
+        results.Append(MetadataSearchResult(id='%s|%d|%s|%s' % (curID, siteNum, releaseDate, searchTitle), name='[%s] %s %s' % (JAVID, displayDate, titleNoFormatting), score=score, lang=lang))
+
+    return results
+
+
+def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+    metadata_id = str(metadata.id).split('|')
+    sceneURL = PAutils.Decode(metadata_id[0])
+    req = PAutils.HTTPRequest(sceneURL)
+    detailsPageElements = HTML.ElementFromString(req.text)
+
+    # Title
+    javID = detailsPageElements.xpath('//meta[@property="og:title"]/@content')[0].strip()
+    title = detailsPageElements.xpath('//*[text()="Title: "]/following-sibling::text()')[0].strip()
+
+    for word, correction in censoredWordsDB.items():
+        if word in title:
+            title = title.replace(word, correction)
+
+    file_name = metadata_id[3]
+    metadata.title = '%s' % (file_name.replace(' ', '-').upper())
+    metadata.summary = PAutils.parseTitle(title, siteNum)
+
+    ### Collection
+    metadata.collections.clear()
+    metadata.collections.add("1-channel/ "+ (metadata.title.upper()).split(' ')[0].split('-')[0])
+    serieLink = detailsPageElements.xpath('//*[text()="JAV Series: "]/following-sibling::span/a')
+    if serieLink:
+        serieName = serieLink[0].text_content().strip()
+        metadata.collections.add("2-serie/ "+ serieName)
+
+    # Studio
+    studio = detailsPageElements.xpath('//*[text()="Studio: "]/following-sibling::span/a')
+    if studio:
+        studioClean = studio[0].text_content().strip()
+        for word, correction in censoredWordsDB.items():
+            if word in studioClean:
+                studioClean = studioClean.replace(word, correction)
+
+        metadata.studio = studioClean
+
+    # Release Date
+    date = detailsPageElements.xpath('//*[text()="Release Date: "]/following-sibling::text()[1]')
+    if date:
+        date_object = datetime.strptime(date[0], '%Y-%m-%d')
+        metadata.originally_available_at = date_object
+        metadata.year = metadata.originally_available_at.year
+
+    # Genres
+    for genreLink in detailsPageElements.xpath('//*[text()="Genre(s): "]/following-sibling::*/a'):
+        genreName = genreLink.text_content().strip()
+        metadata.genres.add(genreName)
+
+    # Actor(s)
+    for actor in detailsPageElements.xpath('//*[text()="Idol(s)/Actress(es): "]/following-sibling::span/a'):
+        actorName = actor.text_content().strip()
+
+        role = metadata.roles.new()
+        role.name = actorName
+
+    # Director
+    directorLink = detailsPageElements.xpath('//*[text()="Director: "]/following-sibling::span/a')
+    if directorLink:
+        directorName = directorLink[0].text_content().strip()
+        
+        director = metadata.directors.new()
+        director.name = directorName
+
+    # Manually Add Actors By JAV ID
+    actors = PAutils.getDictKeyFromValues(sceneActorsDB, javID)
+
+    for actor in actors:
+        role = metadata.roles.new()
+        role.name = actor
+
+    # Poster
+    # posterURL = detailsPageElements.xpath('//tr[@class="moviecovertb"]//img/@src')[0]
+    # if posterURL:
+    #     if 'https' not in posterURL:
+    #         posterURL = 'https:' + posterURL
+    #     metadata.art[posterURL] = Proxy.Preview(posterURL)
+    #     Log('debug posterURL :%s' % posterURL)
+
+    # ps = detailsPageElements.xpath('//div/div[@id="thumbnailContainer"]//img/@src')[0]
+    # if ps:
+    #     if 'https' not in ps:
+    #         ps = 'https:' + ps
+    #     metadata.posters[ps] = Proxy.Preview(ps)
+    #     Log('debug ps :%s' % ps)
+    posterURL = detailsPageElements.xpath('//meta[@property="og:image"]/@content')[0].strip()
+    if 'https' not in posterURL:
+        posterURL = 'https:' + posterURL
+
+    p = posterURL
+    ps = p.replace('pl.jpg', 'ps.jpg')
+
+    metadata.posters[ps] = Proxy.Preview(ps)
+    metadata.art[p] = Proxy.Preview(p)
+
+
+    return metadata
+
+
+def xsearch(results, lang, siteNum, searchData):
     searchJAVID = None
     splitSearchTitle = searchData.title.split()
 
@@ -44,7 +197,7 @@ def search(results, lang, siteNum, searchData):
     return results
 
 
-def update(metadata, lang, siteNum, movieGenres, movieActors, art):
+def xupdate(metadata, lang, siteNum, movieGenres, movieActors, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     req = PAutils.HTTPRequest(sceneURL)
