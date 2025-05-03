@@ -1791,7 +1791,7 @@ searchSites = {
     1697: ('Girl Scout Sex', 'https://pornplus.com', '/video/'),
     1698: ('Exploited Cheerleaders', 'https://pornplus.com', '/video/'),
     1699: ('School of Cock', 'https://pornplus.com', '/video/'),
-    1700: ('GloryHole 4K', 'https://pornplus.com', '/video/'),
+    1700: ('Glory Hole 4K', 'https://pornplus.com', '/video/'),
     1701: ('Creepy Pa', 'https://pornplus.com', '/video/'),
     1702: ('Caged Sex', 'https://pornplus.com', '/video/'),
     1703: ('Teeny Taboo', 'https://teenytaboo.com', '/videos/'),
@@ -1983,6 +1983,8 @@ searchSites = {
     1889: ('Score Classics', 'https://www.scoreclassics.com', '/classic-boob-videos/'),
     1890: ('LustCinema', 'https://next-prod-api.lustcinema.com', '/api/search'),
     1891: ('CzechAR', 'https://www.czechar.com', '/model-'),
+    1892: ('Strippers 4K', 'https://strippers4k.com', '/video/'),
+    1893: ('Wifey', 'https://www.wifey.com', '/graphql')
 }
 
 abbreviations = (
@@ -2287,7 +2289,7 @@ def getProviderFromSiteNum(siteNum):
 
     if siteNum is not None:
         # Strike3
-        if (0 <= siteNum <= 1) or siteNum == 52 or siteNum == 136 or (670 <= siteNum <= 671) or siteNum == 1357 or siteNum == 1806:
+        if (0 <= siteNum <= 1) or siteNum == 52 or siteNum == 136 or (670 <= siteNum <= 671) or siteNum == 1357 or siteNum == 1806 or siteNum == 1893:
             provider = networkStrike3
 
         # Brazzers
@@ -2459,7 +2461,7 @@ def getProviderFromSiteNum(siteNum):
             provider = sitePrivate
 
         # PornPros Network
-        elif (306 <= siteNum <= 327) or (479 <= siteNum <= 489) or siteNum == 624 or siteNum == 769 or siteNum == 844 or siteNum == 890 or siteNum == 1263 or siteNum == 1364 or siteNum == 1393 or (1688 <= siteNum <= 1692) or siteNum == 1693 or (1695 <= siteNum <= 1702) or siteNum == 1704:
+        elif (306 <= siteNum <= 327) or (479 <= siteNum <= 489) or siteNum == 624 or siteNum == 769 or siteNum == 844 or siteNum == 890 or siteNum == 1263 or siteNum == 1364 or siteNum == 1393 or (1688 <= siteNum <= 1692) or siteNum == 1693 or (1695 <= siteNum <= 1702) or siteNum == 1704 or siteNum == 1892:
             provider = networkPornPros
 
         # DigitalPlayground
